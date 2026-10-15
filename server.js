@@ -15,7 +15,8 @@ const client = new Client({
     ]
 });
 
-const TOKEN = 'MTU2MDM5NzA1ODM2MjU4MTA2Mg.G7ZBVh.pegh2ROidaN95bQ7svOnFAC93JeGwVUILk6rXI';
+// টোকেনটি Render এর Environment থেকে অটোমেটিক আসবে
+const TOKEN = process.env.DISCORD_TOKEN; 
 const GUILD_ID = '1560034399398142113';
 const CATEGORY_ID = '1560064623430864987';
 
@@ -55,5 +56,5 @@ app.post('/create-ticket', async (req, res) => {
 });
 
 client.login(TOKEN);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

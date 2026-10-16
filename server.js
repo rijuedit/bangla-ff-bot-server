@@ -6,6 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ডিসকর্ড বট ক্লায়েন্ট সেটআপ
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -15,36 +16,37 @@ const client = new Client({
     ]
 });
 
-// --- আপনার সিক্রেট তথ্যগুলো এখানে সেট করে দিয়েছি ---
-const DISCORD_TOKEN = "MTU2MDM5NzA1ODM2MjU4MTA2Mg.GwJSaI.ghJps0hKLmQBI7RgwVK1i9CS1Fx18-eFio2ewc"; 
+// আপনার সার্ভারের আইডিগুলো এখানে সেট করা হলো
 const SERVER_ID = "1550169907868602469";
 const CATEGORY_ID = "1560645166660853811";
 const ADMIN_ROLE_ID = "1560650609386983424";
 
+// Render-এর এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নেওয়া
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+
 client.once('ready', () => {
-    console.log(`✅ Bot is online as ${client.user.tag}`);
+    console.log(`✅ BANGLA FF BOT is online as ${client.user.tag}`);
 });
 
-// সার্ভার লাইভ আছে কিনা চেক করার জন্য
+// সার্ভার ঠিক আছে কিনা চেক করার রুট
 app.get('/', (req, res) => {
-    res.send('BANGLA FF Panel Bot Server is live!');
+    res.send('BANGLA FF Bot API is Running Successfully!');
 });
 
-// ওয়েবসাইট থেকে অর্ডার আসলে টিকেট বানানোর API
+// টিকেট তৈরির মূল কোড (অর্ডার রিসিভ)
 app.post('/create-ticket', async (req, res) => {
-    const { discordUserId, discordUsername, packageName, price, productTitle, category } = req.body;
+    const { discordUserId, packageName, price, productTitle } = req.body;
 
     try {
         const guild = await client.guilds.fetch(SERVER_ID);
         
-        // চ্যানেলের নাম ঠিক করা
-        const userCleanName = (discordUsername || discordUserId || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const channelName = `ticket-${userCleanName.slice(0, 10)}`;
+        // চ্যানেলের নাম তৈরি
+        const channelName = `order-${Date.now().toString().slice(-4)}`;
 
-        // প্রাইভেট পারমিশন সেটআপ
+        // প্রাইভেট পারমিশন লজিক
         const permissionOverwrites = [
             {
-                id: guild.id, // সবার জন্য বন্ধ
+                id: guild.id, // @everyone সবার জন্য বন্ধ
                 deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
@@ -58,7 +60,7 @@ app.post('/create-ticket', async (req, res) => {
             }
         ];
 
-        // যদি ইউজার তার সঠিক আইডি দেয়, তবে তাকে চ্যানেলে ঢোকার পারমিশন দেওয়া
+        // যদি ইউজার তার সঠিক আইডি দেয়, তবে তাকেও পারমিশন দেওয়া হবে
         if (discordUserId && /^\d{17,19}$/.test(discordUserId)) {
             permissionOverwrites.push({
                 id: discordUserId,
@@ -73,41 +75,46 @@ app.post('/create-ticket', async (req, res) => {
         // টিকেট চ্যানেল তৈরি
         const ticketChannel = await guild.channels.create({
             name: channelName,
-            type: 0,
+            type: 0, // GuildText
             parent: CATEGORY_ID,
             permissionOverwrites: permissionOverwrites
         });
 
-        // টিকেটের ভেতর সুন্দর করে মেসেজ সাজানো
+        // টিকেটের ভেতরে মেসেজ পাঠানো
         const embed = new EmbedBuilder()
-            .setTitle("🔔 NEW ORDER - PRIVATE TICKET")
+            .setTitle("🎮 NEW PREMIUM ORDER RECEIVED")
             .setColor("#ff0066")
+            .setThumbnail(client.user.displayAvatarURL())
             .addFields(
-                { name: "🎮 Product", value: productTitle || "PC PANEL", inline: true },
-                { name: "📦 Package", value: packageName || "N/A", inline: true },
-                { name: "💰 Price", value: price || "N/A", inline: true },
-                { name: "👤 Customer", value: discordUserId ? `<@${discordUserId}>` : (discordUsername || "Guest"), inline: false }
+                { name: "📦 Product:", value: productTitle || "Paid Panel", inline: true },
+                { name: "⏳ Package:", value: packageName || "N/A", inline: true },
+                { name: "💰 Price:", value: price || "N/A", inline: true },
+                { name: "👤 Customer:", value: discordUserId ? `<@${discordUserId}>` : "Not Provided", inline: false }
             )
-            .setFooter({ text: "BANGLA FF PANEL" })
+            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System" })
             .setTimestamp();
 
         const adminMention = `<@&${ADMIN_ROLE_ID}>`;
         await ticketChannel.send({
-            content: `New Order! ${adminMention}`,
+            content: `📢 New order request! ${adminMention}`,
             embeds: [embed]
         });
 
-        // ওয়েবসাইটকে টিকেটের লিংক ফেরত পাঠানো
+        // ওয়েবসাইটকে টিকেটের ডিরেক্ট লিংক পাঠানো
         const ticketUrl = `https://discord.com/channels/${SERVER_ID}/${ticketChannel.id}`;
         res.json({ success: true, url: ticketUrl });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error("Error creating ticket:", error);
+        res.status(500).json({ success: false, error: "Bot couldn't create channel. Check permissions." });
     }
 });
 
+// Render-এর পোর্টের জন্য কনফিগারেশন
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 API Server running on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 API server live on port ${PORT}`);
+});
 
+// বট লগইন
 client.login(DISCORD_TOKEN);

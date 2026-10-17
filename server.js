@@ -6,7 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ডিসকর্ড বট ক্লায়েন্ট সেটআপ
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -16,41 +15,40 @@ const client = new Client({
     ]
 });
 
-// আপনার বর্তমান নতুন সার্ভারের সঠিক আইডিগুলো
-const SERVER_ID = "1560034399398142113"; // আপনার প্যানেল সার্ভার আইডি
-const CATEGORY_ID = "1560064019325255701"; // টিকেট ক্যাটাগরি আইডি
-const ADMIN_ROLE_ID = "1560739230186217493"; // এডমিন রোল আইডি
+// ====================== আপনার আইডিসমূহ ======================
+const SERVER_ID = "1560034399398142113";
+const CATEGORY_ID = "1560064019325255701";
+const ADMIN_ROLE_ID = "1560739230186217493";
 
-// Render-এর এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নেওয়া
+// ====================== আপনার পেমেন্ট নাম্বারসমূহ ======================
+const BKASH_NUMBER  = "01869942698";   // বিকাশ পার্সোনাল
+const NAGAD_NUMBER  = "01624528622";   // নগদ পার্সোনাল
+// ========================================================================
+
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 client.once('ready', () => {
     console.log(`✅ BANGLA FF BOT is online as ${client.user.tag}`);
 });
 
-// সার্ভার ঠিক আছে কিনা চেক করার রুট
 app.get('/', (req, res) => {
     res.send('BANGLA FF Bot API is Running Successfully!');
 });
 
-// টিকেট তৈরির মূল কোড (অর্ডার রিসিভ)
 app.post('/create-ticket', async (req, res) => {
     const { discordUserId, packageName, price, productTitle } = req.body;
 
     try {
         const guild = await client.guilds.fetch(SERVER_ID);
-        
-        // চ্যানেলের নাম তৈরি
         const channelName = `order-${Date.now().toString().slice(-4)}`;
 
-        // প্রাইভেট পারমিশন লজিক
         const permissionOverwrites = [
             {
-                id: guild.id, // @everyone সবার জন্য বন্ধ
+                id: guild.id,
                 deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-                id: ADMIN_ROLE_ID, // এডমিনদের জন্য খোলা
+                id: ADMIN_ROLE_ID,
                 allow: [
                     PermissionsBitField.Flags.ViewChannel,
                     PermissionsBitField.Flags.SendMessages,
@@ -60,7 +58,6 @@ app.post('/create-ticket', async (req, res) => {
             }
         ];
 
-        // যদি ইউজার তার সঠিক আইডি দেয়, তবে তাকেও পারমিশন দেওয়া হবে
         let userPing = `**${discordUserId || "Not Provided"}**`;
         if (discordUserId && /^\d{17,19}$/.test(discordUserId)) {
             userPing = `<@${discordUserId}>`;
@@ -74,59 +71,82 @@ app.post('/create-ticket', async (req, res) => {
             });
         }
 
-        // টিকেট চ্যানেল তৈরি
         const ticketChannel = await guild.channels.create({
             name: channelName,
-            type: 0, // GuildText
+            type: 0,
             parent: CATEGORY_ID,
             permissionOverwrites: permissionOverwrites
         });
 
-        // 💥 সুন্দর, পরিষ্কার ও কালারফুল এমবেড মেসেজ 💥
+        // ========== প্রিমিয়াম ডার্ক নিয়ন পেমেন্ট টিকেট ==========
         const embed = new EmbedBuilder()
             .setTitle("🛒 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐎𝐑𝐃𝐄𝐑 𝐓𝐈𝐂𝐊𝐄𝐓")
-            .setDescription("আপনার অর্ডার রিকোয়েস্টটি সফলভাবে তৈরি হয়েছে! নিচে অর্ডারের বিবরণ দেওয়া হলো:")
-            .setColor("#ff0066") // নিয়ন পিঙ্ক বর্ডার
+            .setDescription("আপনার অর্ডারটি সফলভাবে রেজিস্টার হয়েছে! নিচে পেমেন্ট নাম্বার ও নির্দেশনা দেওয়া হলো:")
+            .setColor("#00ff99")
             .setThumbnail(client.user.displayAvatarURL())
             .addFields(
-                { 
-                    name: "📦 ━ 【 PRODUCT NAME 】", 
-                    value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``, // Yellow Color
-                    inline: false 
+                {
+                    name: "📦 ━【 প্রোডাক্ট 】",
+                    value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``,
+                    inline: false
                 },
-                { 
-                    name: "⏳ ━ 【 DURATION 】", 
-                    value: `\`\`\`yaml\n⏳ ${packageName || "N/A"}\n\`\`\``, // Cyan Color
-                    inline: true 
+                {
+                    name: "⏳ ━【 মেয়াদ 】",
+                    value: `\`\`\`yaml\n${packageName || "N/A"}\n\`\`\``,
+                    inline: true
                 },
-                { 
-                    name: "💰 ━ 【 TOTAL PRICE 】", 
-                    value: `\`\`\`diff\n+ 💲 ${price || "N/A"}\n\`\`\``, // Green Color
-                    inline: true 
+                {
+                    name: "💰 ━【 মোট টাকা 】",
+                    value: `\`\`\`diff\n+ ${price || "0"} BDT\n\`\`\``,
+                    inline: true
                 },
-                { 
-                    name: "👤 ━ 【 CUSTOMER DETAILS 】", 
-                    value: `> **Name / ID:** \`${discordUserId || "Not Provided"}\`\n> **User Mention:** ${userPing}`, 
-                    inline: false 
+                {
+                    name: "👤 ━【 কাস্টমার 】",
+                    value: `> **ID:** \`${discordUserId || "N/A"}\`\n> **Mention:** ${userPing}`,
+                    inline: false
                 },
-                { 
-                    name: "📌 ━ 【 INSTRUCTIONS 】", 
-                    value: `> **১. আপনার পেমেন্টের সঠিক স্ক্রিনশট এই চ্যানেলে পাঠান।**\n> **২. এডমিন যুক্ত হওয়া পর্যন্ত অনুগ্রহ করে অপেক্ষা করুন।**`, 
-                    inline: false 
+                {
+                    name: "💳 ━【 পেমেন্ট নাম্বার (কপি করতে নাম্বারে চাপ দিন) 】",
+                    value: 
+`> 🔴 **bKash (Personal - Send Money):**
+\`\`\`
+${BKASH_NUMBER}
+\`\`\`
+> 🟠 **Nagad (Personal - Send Money):**
+\`\`\`
+${NAGAD_NUMBER}
+\`\`\``,
+                    inline: false
+                },
+                {
+                    name: "📌 ━【 কীভাবে পেমেন্ট করবেন 】",
+                    value: 
+`> **১.** বিকাশ অথবা নগদের নাম্বারটি কপি করে নিন  
+> **২.** **Send Money** অপশন থেকে **\`${price || "0"}\`** টাকা পাঠান  
+> **৩.** পেমেন্ট সম্পন্ন হলে এই চ্যানেলে **স্ক্রিনশট** ও **TrxID** পাঠান  
+> **৪.** এডমিন খুব দ্রুত ভেরিফাই করে প্যানেল অ্যাকসেস দিয়ে দেবে`,
+                    inline: false
+                },
+                {
+                    name: "⚠️ ━【 বিশেষ সতর্কতা 】",
+                    value: `> • অবশ্যই **Send Money** করতে হবে (Cash Out নয়)  
+> • ভুল নাম্বারে টাকা পাঠালে আমরা দায়ী থাকব না`,
+                    inline: false
                 }
             )
-            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System", iconURL: client.user.displayAvatarURL() })
+            .setFooter({ 
+                text: "BANGLA FF PANEL • Secure Ticket System", 
+                iconURL: client.user.displayAvatarURL() 
+            })
             .setTimestamp();
 
         const adminMention = `<@&${ADMIN_ROLE_ID}>`;
-        
-        // টিকেটের ভেতরে মেসেজ পাঠানো
+
         await ticketChannel.send({
-            content: `📢 **New Order Received!** ${adminMention}\nহ্যালো ${userPing}, আপনার অর্ডারের পেমেন্ট প্রুফ নিচে জমা দিন।`,
+            content: `📢 **নতুন অর্ডার এসেছে!** ${adminMention}\n\nহ্যালো ${userPing} 👋\nনিচে আপনার পেমেন্ট নাম্বার দেওয়া আছে। টাকা পাঠিয়ে স্ক্রিনশট দিন।`,
             embeds: [embed]
         });
 
-        // ওয়েবসাইটকে টিকেটের ডিরেক্ট লিংক পাঠানো
         const ticketUrl = `https://discord.com/channels/${SERVER_ID}/${ticketChannel.id}`;
         res.json({ success: true, url: ticketUrl });
 
@@ -136,11 +156,9 @@ app.post('/create-ticket', async (req, res) => {
     }
 });
 
-// Render-এর পোর্টের জন্য কনফিগারেশন
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🚀 API server live on port ${PORT}`);
 });
 
-// বট লগইন
 client.login(DISCORD_TOKEN);

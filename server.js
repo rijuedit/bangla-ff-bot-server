@@ -16,10 +16,10 @@ const client = new Client({
     ]
 });
 
-// আপনার সার্ভারের আইডিগুলো এখানে সেট করা হলো
-const SERVER_ID = "1550169907868602469";
-const CATEGORY_ID = "1560645166660853811";
-const ADMIN_ROLE_ID = "1560650609386983424";
+// আপনার নতুন সার্ভারের আইডিগুলো এখানে আপডেট করা হলো
+const SERVER_ID = "1560034399398142113"; // আপনার প্যানেল সার্ভার আইডি
+const CATEGORY_ID = "1560064623430864987"; // টিকেট ক্যাটাগরি আইডি
+const ADMIN_ROLE_ID = "1560739230186217493"; // এডমিন রোল আইডি
 
 // Render-এর এনভায়রনমেন্ট ভেরিয়েবল থেকে টোকেন নেওয়া
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
@@ -89,7 +89,8 @@ app.post('/create-ticket', async (req, res) => {
                 { name: "📦 Product:", value: productTitle || "Paid Panel", inline: true },
                 { name: "⏳ Package:", value: packageName || "N/A", inline: true },
                 { name: "💰 Price:", value: price || "N/A", inline: true },
-                { name: "👤 Customer:", value: discordUserId ? `<@${discordUserId}>` : "Not Provided", inline: false }
+                { name: "👤 Customer ID:", value: discordUserId || "Not Provided", inline: false },
+                { name: "🔗 Mention:", value: discordUserId ? `<@${discordUserId}>` : "N/A", inline: false }
             )
             .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System" })
             .setTimestamp();
@@ -106,7 +107,7 @@ app.post('/create-ticket', async (req, res) => {
 
     } catch (error) {
         console.error("Error creating ticket:", error);
-        res.status(500).json({ success: false, error: "Bot couldn't create channel. Check permissions." });
+        res.status(500).json({ success: false, error: "Bot error" });
     }
 });
 

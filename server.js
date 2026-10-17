@@ -44,7 +44,7 @@ app.post('/create-ticket', async (req, res) => {
         const guild = await client.guilds.fetch(SERVER_ID);
         const channelName = `order-${Date.now().toString().slice(-4)}`;
 
-        // Base Channel Permissions Setup
+        // Base Channel Permissions (Admins only by default)
         const permissionOverwrites = [
             {
                 id: guild.id, // Hide channel from @everyone
@@ -52,108 +52,69 @@ app.post('/create-ticket', async (req, res) => {
             },
             {
                 id: FOUNDER_ROLE_ID, // FOUNDER Access
-                allow: [
-                    PermissionsBitField.Flags.ViewChannel,
-                    PermissionsBitField.Flags.SendMessages,
-                    PermissionsBitField.Flags.EmbedLinks,
-                    PermissionsBitField.Flags.ReadMessageHistory
-                ]
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory]
             },
             {
                 id: CO_OWNER_ROLE_ID, // CO-OWNER Access
-                allow: [
-                    PermissionsBitField.Flags.ViewChannel,
-                    PermissionsBitField.Flags.SendMessages,
-                    PermissionsBitField.Flags.EmbedLinks,
-                    PermissionsBitField.Flags.ReadMessageHistory
-                ]
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory]
             }
         ];
 
+        let targetUserId = null;
         let userPing = `**${discordUserId || "Not Provided"}**`;
-        if (discordUserId && /^\d{17,19}$/.test(discordUserId)) {
-            userPing = `<@${discordUserId}>`;
+
+        // 🌟 স্মার্ট ইউজারনেম এবং আইডি ফাইন্ডার (Smart Search)
+        if (discordUserId) {
+            if (/^\d{17,19}$/.test(discordUserId)) {
+                // If it's already an 18-digit ID
+                targetUserId = discordUserId;
+            } else {
+                // If user typed their username, search the server for their ID
+                try {
+                    const members = await guild.members.fetch({ query: discordUserId, limit: 1 });
+                    const member = members.first();
+                    if (member) {
+                        targetUserId = member.id;
+                    }
+                } catch(err) {
+                    console.log("Member search error (Not in server yet).");
+                }
+            }
+        }
+
+        // কাস্টমার সার্ভারে থাকলে তাকে পারমিশন দেওয়া
+        if (targetUserId) {
+            userPing = `<@${targetUserId}>`;
             permissionOverwrites.push({
-                id: discordUserId, // Customer Access
-                allow: [
-                    PermissionsBitField.Flags.ViewChannel,
-                    PermissionsBitField.Flags.SendMessages,
-                    PermissionsBitField.Flags.ReadMessageHistory
-                ]
+                id: targetUserId,
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory]
             });
         }
 
-        // Create Private Ticket Channel under Category
+        // Create Private Ticket Channel
         const ticketChannel = await guild.channels.create({
             name: channelName,
-            type: 0, // Text Channel
+            type: 0,
             parent: CATEGORY_ID,
             permissionOverwrites: permissionOverwrites
         });
 
-        // Construct Embed
         const embed = new EmbedBuilder()
             .setTitle("🛒 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐎𝐑𝐃𝐄𝐑 𝐓𝐈𝐂𝐊𝐄𝐓")
             .setDescription("আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে! নিচে পেমেন্ট নাম্বার ও নিয়মাবলী দেওয়া হলো:")
             .setColor("#00ff99")
             .setThumbnail(client.user.displayAvatarURL())
             .addFields(
-                {
-                    name: "📦 ━【 প্রোডাক্ট 】",
-                    value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``,
-                    inline: false
-                },
-                {
-                    name: "⏳ ━【 মেয়াদ 】",
-                    value: `\`\`\`yaml\n${packageName || "N/A"}\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "💰 ━【 মোট টাকা 】",
-                    value: `\`\`\`diff\n+ ${price || "0"} BDT\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "👤 ━【 কাস্টমার 】",
-                    value: `> **ID:** \`${discordUserId || "N/A"}\`\n> **Mention:** ${userPing}`,
-                    inline: false
-                },
-                {
-                    name: "💳 ━【 পেমেন্ট নাম্বার (কপি করতে নাম্বারে চাপ দিন) 】",
-                    value: 
-`> 💖 **bKash (Personal - Send Money):**
-\`\`\`
-${BKASH_NUMBER}
-\`\`\`
-> 🟧 **Nagad (Personal - Send Money):**
-\`\`\`
-${NAGAD_NUMBER}
-\`\`\``,
-                    inline: false
-                },
-                {
-                    name: "📌 ━【 কীভাবে পেমেন্ট করবেন 】",
-                    value: 
-`> **১.** বিকাশ অথবা নগদের নাম্বারটি কপি করে নিন  
-> **২.** **Send Money** অপশন থেকে **\`${price || "0"}\`** টাকা পাঠান  
-> **৩.** পেমেন্ট সম্পন্ন হলে এই চ্যানেলে **স্ক্রিনশট** ও **TrxID** পাঠান  
-> **৪.** এডমিন খুব দ্রুত ভেরিফাই করে প্যানেল অ্যাকসেস দিয়ে দেবে`,
-                    inline: false
-                },
-                {
-                    name: "⚠️ ━【 বিশেষ সতর্কতা 】",
-                    value: `> • অবশ্যই **Send Money** করতে হবে (Cash Out নয়)  
-> • ভুল নাম্বারে টাকা পাঠালে আমরা দায়ী থাকব না`,
-                    inline: false
-                }
+                { name: "📦 ━【 প্রোডাক্ট 】", value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``, inline: false },
+                { name: "⏳ ━【 মেয়াদ 】", value: `\`\`\`yaml\n${packageName || "N/A"}\n\`\`\``, inline: true },
+                { name: "💰 ━【 মোট টাকা 】", value: `\`\`\`diff\n+ ${price || "0"} BDT\n\`\`\``, inline: true },
+                { name: "👤 ━【 কাস্টমার 】", value: `> **ID/Name:** \`${discordUserId || "N/A"}\`\n> **Mention:** ${userPing}`, inline: false },
+                { name: "💳 ━【 পেমেন্ট নাম্বার (কপি করতে নাম্বারে চাপ দিন) 】", value: `> 💖 **bKash (Personal - Send Money):**\n\`\`\`\n${BKASH_NUMBER}\n\`\`\`\n> 🟧 **Nagad (Personal - Send Money):**\n\`\`\`\n${NAGAD_NUMBER}\n\`\`\``, inline: false },
+                { name: "📌 ━【 কীভাবে পেমেন্ট করবেন 】", value: `> **১.** বিকাশ অথবা নগদের নাম্বারটি কপি করে নিন\n> **২.** **Send Money** অপশন থেকে **\`${price || "0"}\`** টাকা পাঠান\n> **৩.** পেমেন্ট সম্পন্ন হলে এই চ্যানেলে **স্ক্রিনশট** ও **TrxID** পাঠান`, inline: false }
             )
-            .setFooter({ 
-                text: "BANGLA FF PANEL • Secure Ticket System", 
-                iconURL: client.user.displayAvatarURL() 
-            })
+            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System", iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
 
-        // Tag Founder & Co-Owner simultaneously
         const roleMentions = `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>`;
 
         await ticketChannel.send({
@@ -161,8 +122,13 @@ ${NAGAD_NUMBER}
             embeds: [embed]
         });
 
-        const ticketUrl = `https://discord.com/channels/${SERVER_ID}/${ticketChannel.id}`;
-        res.json({ success: true, url: ticketUrl });
+        // 🌟 জেনারেট ইনভাইট লিংক (নতুন মেম্বারদের সার্ভারে জয়েন করানোর জন্য)
+        const invite = await ticketChannel.createInvite({
+            maxAge: 86400, // 24 hours validity
+            maxUses: 0 // Unlimited uses
+        });
+
+        res.json({ success: true, url: invite.url });
 
     } catch (error) {
         console.error("Error creating ticket:", error);

@@ -16,7 +16,7 @@ const client = new Client({
     ]
 });
 
-// আপনার নতুন সার্ভারের আইডিগুলো এখানে আপডেট করা হলো
+// আপনার বর্তমান নতুন সার্ভারের সঠিক আইডিগুলো
 const SERVER_ID = "1560034399398142113"; // আপনার প্যানেল সার্ভার আইডি
 const CATEGORY_ID = "1560064019325255701"; // টিকেট ক্যাটাগরি আইডি
 const ADMIN_ROLE_ID = "1560739230186217493"; // এডমিন রোল আইডি
@@ -61,7 +61,9 @@ app.post('/create-ticket', async (req, res) => {
         ];
 
         // যদি ইউজার তার সঠিক আইডি দেয়, তবে তাকেও পারমিশন দেওয়া হবে
+        let userPing = `**${discordUserId || "Not Provided"}**`;
         if (discordUserId && /^\d{17,19}$/.test(discordUserId)) {
+            userPing = `<@${discordUserId}>`;
             permissionOverwrites.push({
                 id: discordUserId,
                 allow: [
@@ -80,24 +82,47 @@ app.post('/create-ticket', async (req, res) => {
             permissionOverwrites: permissionOverwrites
         });
 
-        // টিকেটের ভেতরে মেসেজ পাঠানো
+        // 💥 সুন্দর, পরিষ্কার ও কালারফুল এমবেড মেসেজ 💥
         const embed = new EmbedBuilder()
-            .setTitle("🎮 NEW PREMIUM ORDER RECEIVED")
-            .setColor("#ff0066")
+            .setTitle("🛒 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐎𝐑𝐃𝐄𝐑 𝐓𝐈𝐂𝐊𝐄𝐓")
+            .setDescription("আপনার অর্ডার রিকোয়েস্টটি সফলভাবে তৈরি হয়েছে! নিচে অর্ডারের বিবরণ দেওয়া হলো:")
+            .setColor("#ff0066") // নিয়ন পিঙ্ক বর্ডার
             .setThumbnail(client.user.displayAvatarURL())
             .addFields(
-                { name: "📦 Product:", value: productTitle || "Paid Panel", inline: true },
-                { name: "⏳ Package:", value: packageName || "N/A", inline: true },
-                { name: "💰 Price:", value: price || "N/A", inline: true },
-                { name: "👤 Customer ID:", value: discordUserId || "Not Provided", inline: false },
-                { name: "🔗 Mention:", value: discordUserId ? `<@${discordUserId}>` : "N/A", inline: false }
+                { 
+                    name: "📦 ━ 【 PRODUCT NAME 】", 
+                    value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``, // Yellow Color
+                    inline: false 
+                },
+                { 
+                    name: "⏳ ━ 【 DURATION 】", 
+                    value: `\`\`\`yaml\n⏳ ${packageName || "N/A"}\n\`\`\``, // Cyan Color
+                    inline: true 
+                },
+                { 
+                    name: "💰 ━ 【 TOTAL PRICE 】", 
+                    value: `\`\`\`diff\n+ 💲 ${price || "N/A"}\n\`\`\``, // Green Color
+                    inline: true 
+                },
+                { 
+                    name: "👤 ━ 【 CUSTOMER DETAILS 】", 
+                    value: `> **Name / ID:** \`${discordUserId || "Not Provided"}\`\n> **User Mention:** ${userPing}`, 
+                    inline: false 
+                },
+                { 
+                    name: "📌 ━ 【 INSTRUCTIONS 】", 
+                    value: `> **১. আপনার পেমেন্টের সঠিক স্ক্রিনশট এই চ্যানেলে পাঠান।**\n> **২. এডমিন যুক্ত হওয়া পর্যন্ত অনুগ্রহ করে অপেক্ষা করুন।**`, 
+                    inline: false 
+                }
             )
-            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System" })
+            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System", iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
 
         const adminMention = `<@&${ADMIN_ROLE_ID}>`;
+        
+        // টিকেটের ভেতরে মেসেজ পাঠানো
         await ticketChannel.send({
-            content: `📢 New order request! ${adminMention}`,
+            content: `📢 **New Order Received!** ${adminMention}\nহ্যালো ${userPing}, আপনার অর্ডারের পেমেন্ট প্রুফ নিচে জমা দিন।`,
             embeds: [embed]
         });
 

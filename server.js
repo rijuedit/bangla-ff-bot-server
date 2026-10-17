@@ -16,11 +16,14 @@ const client = new Client({
 });
 
 // ====================== আপনার আইডিসমূহ ======================
-const SERVER_ID = "1560034399398142113";
-const CATEGORY_ID = "1560064019325255701";
-const ADMIN_ROLE_ID = "1560739230186217493";
+const SERVER_ID        = "1560034399398142113";
+const CATEGORY_ID      = "1560064019325255701";
 
-// ====================== আপনার পেমেন্ট নাম্বারসমূহ ======================
+// 📌 এখানে FOUNDER এবং CO-OWNER রোলের আইডি বসান
+const FOUNDER_ROLE_ID  = "এখানে_FOUNDER_ROLE_ID_বসান"; 
+const CO_OWNER_ROLE_ID = "এখানে_CO_OWNER_ROLE_ID_বসান"; 
+
+// ====================== পেমেন্ট নাম্বার ======================
 const BKASH_NUMBER  = "01869942698";   // বিকাশ পার্সোনাল
 const NAGAD_NUMBER  = "01624528622";   // নগদ পার্সোনাল
 // ========================================================================
@@ -42,13 +45,23 @@ app.post('/create-ticket', async (req, res) => {
         const guild = await client.guilds.fetch(SERVER_ID);
         const channelName = `order-${Date.now().toString().slice(-4)}`;
 
+        // প্রাইভেট পারমিশন লজিক (FOUNDER এবং CO-OWNER দুজনের জন্যই খোলা)
         const permissionOverwrites = [
             {
-                id: guild.id,
+                id: guild.id, // @everyone বন্ধ
                 deny: [PermissionsBitField.Flags.ViewChannel]
             },
             {
-                id: ADMIN_ROLE_ID,
+                id: FOUNDER_ROLE_ID, // FOUNDER পারমিশন
+                allow: [
+                    PermissionsBitField.Flags.ViewChannel,
+                    PermissionsBitField.Flags.SendMessages,
+                    PermissionsBitField.Flags.EmbedLinks,
+                    PermissionsBitField.Flags.ReadMessageHistory
+                ]
+            },
+            {
+                id: CO_OWNER_ROLE_ID, // CO-OWNER পারমিশন
                 allow: [
                     PermissionsBitField.Flags.ViewChannel,
                     PermissionsBitField.Flags.SendMessages,
@@ -78,10 +91,10 @@ app.post('/create-ticket', async (req, res) => {
             permissionOverwrites: permissionOverwrites
         });
 
-        // ========== প্রিমিয়াম ডার্ক নিয়ন পেমেন্ট টিকেট ==========
+        // ========== পেমেন্ট টিকেট এমবেড ==========
         const embed = new EmbedBuilder()
             .setTitle("🛒 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐎𝐑𝐃𝐄𝐑 𝐓𝐈𝐂𝐊𝐄𝐓")
-            .setDescription("আপনার অর্ডারটি সফলভাবে রেজিস্টার হয়েছে! নিচে পেমেন্ট নাম্বার ও নির্দেশনা দেওয়া হলো:")
+            .setDescription("আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে! নিচে পেমেন্ট নাম্বার ও নিয়মাবলী দেওয়া হলো:")
             .setColor("#00ff99")
             .setThumbnail(client.user.displayAvatarURL())
             .addFields(
@@ -108,11 +121,11 @@ app.post('/create-ticket', async (req, res) => {
                 {
                     name: "💳 ━【 পেমেন্ট নাম্বার (কপি করতে নাম্বারে চাপ দিন) 】",
                     value: 
-`> 🔴 **bKash (Personal - Send Money):**
+`> 💖 **bKash (Personal - Send Money):**
 \`\`\`
 ${BKASH_NUMBER}
 \`\`\`
-> 🟠 **Nagad (Personal - Send Money):**
+> 🟧 **Nagad (Personal - Send Money):**
 \`\`\`
 ${NAGAD_NUMBER}
 \`\`\``,
@@ -140,10 +153,11 @@ ${NAGAD_NUMBER}
             })
             .setTimestamp();
 
-        const adminMention = `<@&${ADMIN_ROLE_ID}>`;
+        // FOUNDER এবং CO-OWNER দুটো রোলকেই একসাথে মেনশন
+        const roleMentions = `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>`;
 
         await ticketChannel.send({
-            content: `📢 **নতুন অর্ডার এসেছে!** ${adminMention}\n\nহ্যালো ${userPing} 👋\nনিচে আপনার পেমেন্ট নাম্বার দেওয়া আছে। টাকা পাঠিয়ে স্ক্রিনশট দিন।`,
+            content: `📢 **নতুন অর্ডার এসেছে!** ${roleMentions}\n\nহ্যালো ${userPing} 👋\nনিচে আপনার পেমেন্ট নাম্বার দেওয়া আছে। টাকা পাঠিয়ে স্ক্রিনশট দিন।`,
             embeds: [embed]
         });
 

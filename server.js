@@ -1,4 +1,4 @@
-
+```javascript
 const {
     Client,
     GatewayIntentBits,
@@ -51,7 +51,9 @@ client.once("ready", () => {
 // ==================================================
 
 app.get("/", (req, res) => {
-    res.status(200).send("BANGLA FF Bot API is Running Successfully!");
+    res.status(200).send(
+        "BANGLA FF Bot API is Running Successfully!"
+    );
 });
 
 // ==================================================
@@ -71,11 +73,14 @@ async function findCustomer(guild, input) {
             const member = await guild.members.fetch(value);
             return { member, reason: null };
         } catch {
-            return { member: null, reason: "MEMBER_NOT_FOUND" };
+            return {
+                member: null,
+                reason: "MEMBER_NOT_FOUND"
+            };
         }
     }
 
-    // Search current server members by username/display name/nickname.
+    // Search current server members.
     try {
         const results = await guild.members.fetch({
             query: value,
@@ -106,8 +111,6 @@ async function findCustomer(guild, input) {
             };
         }
 
-        // If search returned a single clear partial result, do not
-        // automatically grant access based on a partial name.
         return {
             member: null,
             reason: "MEMBER_NOT_FOUND"
@@ -120,6 +123,162 @@ async function findCustomer(guild, input) {
             reason: "MEMBER_NOT_FOUND"
         };
     }
+}
+
+// ==================================================
+// DETECT PANEL TYPE
+// ==================================================
+
+function detectPanelType(productTitle) {
+    const text = String(productTitle || "").toLowerCase();
+
+    const mobileKeywords = [
+        "mobile",
+        "phone",
+        "android",
+        "ios",
+        "iphone",
+        "মোবাইল"
+    ];
+
+    const pcKeywords = [
+        "pc",
+        "computer",
+        "windows",
+        "desktop",
+        "পিসি"
+    ];
+
+    if (mobileKeywords.some(word => text.includes(word))) {
+        return "mobile";
+    }
+
+    if (pcKeywords.some(word => text.includes(word))) {
+        return "pc";
+    }
+
+    // Default style if the product name doesn't identify the platform.
+    return "default";
+}
+
+// ==================================================
+// CREATE ORDER EMBED
+// ==================================================
+
+function createOrderEmbed({
+    panelType,
+    product,
+    duration,
+    amount,
+    buyer,
+    client
+}) {
+    let title;
+    let description;
+    let color;
+    let emoji;
+    let platformName;
+
+    if (panelType === "mobile") {
+        title = "📱 MOBILE PANEL ORDER";
+        description =
+            "╭━━━━━━━━━━━━━━━━━━━━╮\n" +
+            "     📱 **MOBILE PANEL**\n" +
+            "╰━━━━━━━━━━━━━━━━━━━━╯\n\n" +
+            "আপনার Mobile Panel অর্ডার তৈরি হয়েছে!\n" +
+            "নিচের তথ্য দেখে পেমেন্ট সম্পন্ন করুন।";
+
+        color = 0x9B59B6;
+        emoji = "📱";
+        platformName = "MOBILE PANEL";
+    } else if (panelType === "pc") {
+        title = "🖥️ PC PANEL ORDER";
+        description =
+            "╭━━━━━━━━━━━━━━━━━━━━╮\n" +
+            "     🖥️ **PC PANEL**\n" +
+            "╰━━━━━━━━━━━━━━━━━━━━╯\n\n" +
+            "আপনার PC Panel অর্ডার তৈরি হয়েছে!\n" +
+            "নিচের তথ্য দেখে পেমেন্ট সম্পন্ন করুন।";
+
+        color = 0x3498DB;
+        emoji = "🖥️";
+        platformName = "PC PANEL";
+    } else {
+        title = "🛒 PREMIUM ORDER TICKET";
+        description =
+            "আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে!\n" +
+            "নিচের পেমেন্ট তথ্য অনুসরণ করুন।";
+
+        color = 0x00CC99;
+        emoji = "📦";
+        platformName = "PREMIUM ORDER";
+    }
+
+    return new EmbedBuilder()
+        .setTitle(title)
+        .setDescription(description)
+        .setColor(color)
+        .setThumbnail(client.user.displayAvatarURL())
+        .addFields(
+            {
+                name: `${emoji} ━【 PLATFORM 】`,
+                value: `**${platformName}**`,
+                inline: false
+            },
+            {
+                name: "📦 ━【 PRODUCT 】",
+                value: `\`\`\`\n${product}\n\`\`\``,
+                inline: false
+            },
+            {
+                name: "⏳ ━【 PACKAGE / DURATION 】",
+                value: `\`\`\`\n${duration}\n\`\`\``,
+                inline: true
+            },
+            {
+                name: "💰 ━【 TOTAL PRICE 】",
+                value: `\`\`\`\n${amount} BDT\n\`\`\``,
+                inline: true
+            },
+            {
+                name: "👤 ━【 CUSTOMER DETAILS 】",
+                value:
+                    `**Username:** ${buyer.user.username}\n` +
+                    `**User ID:** \`${buyer.id}\`\n` +
+                    `**Customer:** <@${buyer.id}>`,
+                inline: false
+            },
+            {
+                name: "💗 ━【 bKash Personal 】",
+                value: `\`\`\`\n${BKASH_NUMBER}\n\`\`\``,
+                inline: true
+            },
+            {
+                name: "🟠 ━【 Nagad Personal 】",
+                value: `\`\`\`\n${NAGAD_NUMBER}\n\`\`\``,
+                inline: true
+            },
+            {
+                name: "📌 ━【 PAYMENT INSTRUCTIONS 】",
+                value:
+                    "```1. bKash অথবা Nagad নম্বর কপি করুন।\n" +
+                    "2. Send Money থেকে সঠিক টাকা পাঠান।\n" +
+                    "3. পেমেন্টের Screenshot ও TrxID পাঠান।```",
+                inline: false
+            },
+            {
+                name: "⚠️ ━【 IMPORTANT 】",
+                value:
+                    "পেমেন্ট করার আগে টাকার পরিমাণ যাচাই করুন।\n" +
+                    "Staff যাচাই করার পর আপনার অর্ডার প্রসেস করা হবে।",
+                inline: false
+            }
+        )
+        .setFooter({
+            text: `BANGLA FF PANEL • ${platformName} • Secure Ticket`,
+            iconURL: client.user.displayAvatarURL()
+        })
+        .setTimestamp();
 }
 
 // ==================================================
@@ -146,7 +305,6 @@ app.post("/create-ticket", async (req, res) => {
             productTitle
         } = req.body || {};
 
-        // Accept the existing website field or the clearer username field.
         const customerInput = String(
             discordUsername || discordUserId || ""
         ).trim();
@@ -185,7 +343,7 @@ app.post("/create-ticket", async (req, res) => {
             });
         }
 
-        // Fetch configured server.
+        // Fetch configured Discord server.
         const guild = await client.guilds.fetch(SERVER_ID);
 
         // Customer must already be a server member.
@@ -203,7 +361,7 @@ app.post("/create-ticket", async (req, res) => {
 
         const buyer = result.member;
 
-        // Verify ticket category exists.
+        // Verify ticket category.
         const category = await guild.channels.fetch(CATEGORY_ID);
 
         if (
@@ -213,7 +371,7 @@ app.post("/create-ticket", async (req, res) => {
             throw new Error("Configured ticket category is invalid.");
         }
 
-        // Verify staff roles exist.
+        // Verify staff roles.
         const founderRole = await guild.roles.fetch(FOUNDER_ROLE_ID);
         const coOwnerRole = await guild.roles.fetch(CO_OWNER_ROLE_ID);
 
@@ -221,13 +379,14 @@ app.post("/create-ticket", async (req, res) => {
             throw new Error("Founder or Co-owner role is missing.");
         }
 
-        // Create private channel.
+        // Create private ticket channel.
+        const safeUsername = buyer.user.username
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "")
+            .slice(0, 12) || "customer";
+
         const channelName =
-            `order-${buyer.user.username.toLowerCase()
-                .replace(/[^a-z0-9-]/g, "")
-                .slice(0, 12) || "customer"}-${Date.now()
-                .toString()
-                .slice(-5)}`;
+            `order-${safeUsername}-${Date.now().toString().slice(-5)}`;
 
         ticketChannel = await guild.channels.create({
             name: channelName,
@@ -278,79 +437,34 @@ app.post("/create-ticket", async (req, res) => {
         const duration = packageName.trim();
         const amount = Number(price).toLocaleString("en-US");
 
-        // Order details embed.
-        const embed = new EmbedBuilder()
-            .setTitle("🛒 PREMIUM ORDER TICKET")
-            .setDescription(
-                "আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে!\n" +
-                "নিচের পেমেন্ট তথ্য অনুসরণ করুন।"
-            )
-            .setColor("#00ff99")
-            .setThumbnail(client.user.displayAvatarURL())
-            .addFields(
-                {
-                    name: "📦 ━【 প্রোডাক্ট 】",
-                    value: `\`\`\`\n${product}\n\`\`\``,
-                    inline: false
-                },
-                {
-                    name: "⏳ ━【 মেয়াদ 】",
-                    value: `\`\`\`\n${duration}\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "💰 ━【 মোট টাকা 】",
-                    value: `\`\`\`\n${amount} BDT\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "👤 ━【 কাস্টমার 】",
-                    value:
-                        `**Username:** ${buyer.user.username}\n` +
-                        `**User ID:** \`${buyer.id}\`\n` +
-                        `**Mention:** <@${buyer.id}>`,
-                    inline: false
-                },
-                {
-                    name: "💖 ━【 bKash Personal 】",
-                    value: `\`\`\`\n${BKASH_NUMBER}\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "🟧 ━【 Nagad Personal 】",
-                    value: `\`\`\`\n${NAGAD_NUMBER}\n\`\`\``,
-                    inline: true
-                },
-                {
-                    name: "📌 ━【 কীভাবে পেমেন্ট করবেন 】",
-                    value:
-                        "১. bKash অথবা Nagad নম্বর কপি করুন।\n" +
-                        "২. Send Money থেকে নির্ধারিত টাকা পাঠান।\n" +
-                        "৩. পেমেন্ট হলে Screenshot ও TrxID এই Ticket-এ পাঠান।",
-                    inline: false
-                }
-            )
-            .setFooter({
-                text: "BANGLA FF PANEL • Secure Ticket System",
-                iconURL: client.user.displayAvatarURL()
-            })
-            .setTimestamp();
+        // Automatically select Mobile, PC, or default design.
+        const panelType = detectPanelType(product);
+
+        const embed = createOrderEmbed({
+            panelType,
+            product,
+            duration,
+            amount,
+            buyer,
+            client
+        });
 
         // Notify staff and customer.
         await ticketChannel.send({
             content:
-                `📢 **নতুন অর্ডার এসেছে!**\n` +
+                `📢 **NEW ${panelType.toUpperCase()} ORDER!**\n` +
                 `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>\n\n` +
                 `হ্যালো <@${buyer.id}> 👋\n` +
-                "নিচের পেমেন্ট নির্দেশনা অনুসরণ করুন।",
+                "আপনার অর্ডারের তথ্য ও পেমেন্ট নির্দেশনা নিচে দেওয়া হয়েছে।",
+
             embeds: [embed],
+
             allowedMentions: {
                 users: [buyer.id],
                 roles: [FOUNDER_ROLE_ID, CO_OWNER_ROLE_ID]
             }
         });
 
-        // Return the exact ticket channel URL, not a server invite.
         const ticketUrl =
             `https://discord.com/channels/${guild.id}/${ticketChannel.id}`;
 
@@ -364,7 +478,7 @@ app.post("/create-ticket", async (req, res) => {
     } catch (error) {
         console.error("❌ Ticket creation error:", error);
 
-        // Clean up an incomplete ticket if creation failed afterwards.
+        // Clean up incomplete ticket.
         if (ticketChannel) {
             try {
                 await ticketChannel.delete(
@@ -420,3 +534,4 @@ if (!DISCORD_TOKEN) {
         console.error("❌ Discord login failed:", error);
     });
 }
+```

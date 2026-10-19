@@ -84,7 +84,7 @@ async function findCustomer(guild, input) {
         }
     }
 
-    // Search current server members.
+    // Search current server members
     try {
         const results = await guild.members.fetch({
             query: value,
@@ -182,7 +182,6 @@ function createOrderEmbed({
     let emoji;
     let platformName;
 
-    // Default logo for unidentified products
     let logoUrl = client.user.displayAvatarURL();
 
     if (panelType === "mobile") {
@@ -315,7 +314,8 @@ app.post("/create-ticket", async (req, res) => {
             discordUsername,
             packageName,
             price,
-            productTitle
+            productTitle,
+            category
         } = req.body || {};
 
         const customerInput = String(
@@ -356,10 +356,10 @@ app.post("/create-ticket", async (req, res) => {
             });
         }
 
-        // Fetch configured Discord server.
+        // Fetch configured Discord server
         const guild = await client.guilds.fetch(SERVER_ID);
 
-        // Customer must already be a server member.
+        // Customer must already be a server member
         const result = await findCustomer(guild, customerInput);
 
         if (!result.member) {
@@ -374,17 +374,17 @@ app.post("/create-ticket", async (req, res) => {
 
         const buyer = result.member;
 
-        // Verify ticket category.
-        const category = await guild.channels.fetch(CATEGORY_ID);
+        // Verify ticket category
+        const ticketCategory = await guild.channels.fetch(CATEGORY_ID);
 
         if (
-            !category ||
-            category.type !== ChannelType.GuildCategory
+            !ticketCategory ||
+            ticketCategory.type !== ChannelType.GuildCategory
         ) {
             throw new Error("Configured ticket category is invalid.");
         }
 
-        // Verify staff roles.
+        // Verify staff roles
         const founderRole = await guild.roles.fetch(FOUNDER_ROLE_ID);
         const coOwnerRole = await guild.roles.fetch(CO_OWNER_ROLE_ID);
 
@@ -392,7 +392,7 @@ app.post("/create-ticket", async (req, res) => {
             throw new Error("Founder or Co-owner role is missing.");
         }
 
-        // Create private ticket channel.
+        // Create private ticket channel
         const safeUsername = buyer.user.username
             .toLowerCase()
             .replace(/[^a-z0-9-]/g, "")
@@ -450,8 +450,17 @@ app.post("/create-ticket", async (req, res) => {
         const duration = packageName.trim();
         const amount = Number(price).toLocaleString("en-US");
 
-        // Automatically select Mobile, PC, or default design.
-        const panelType = detectPanelType(product);
+        // Category is the primary signal; title is the fallback.
+        const orderCategory = String(category || "")
+            .trim()
+            .toLowerCase();
+
+        const panelType =
+            orderCategory === "mobile panel"
+                ? "mobile"
+                : ["buy pc panel", "pc panel"].includes(orderCategory)
+                    ? "pc"
+                    : detectPanelType(product);
 
         const embed = createOrderEmbed({
             panelType,
@@ -462,7 +471,7 @@ app.post("/create-ticket", async (req, res) => {
             client
         });
 
-        // Notify staff and customer.
+        // Notify staff and customer
         await ticketChannel.send({
             content:
                 `📢 **NEW ${panelType.toUpperCase()} ORDER!**\n` +
@@ -491,7 +500,7 @@ app.post("/create-ticket", async (req, res) => {
     } catch (error) {
         console.error("❌ Ticket creation error:", error);
 
-        // Clean up incomplete ticket.
+        // Clean up incomplete ticket
         if (ticketChannel) {
             try {
                 await ticketChannel.delete(

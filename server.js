@@ -1,144 +1,270 @@
-const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder } = require('discord.js');
-const express = require('express');
-const cors = require('cors');
+
+const {
+    Client,
+    GatewayIntentBits,
+    PermissionsBitField,
+    EmbedBuilder,
+    ChannelType
+} = require("discord.js");
+
+const express = require("express");
+const cors = require("cors");
 
 const app = express();
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "20kb" }));
+
+// ================= CONFIGURATION =================
+
+const SERVER_ID = "1560034399398142113";
+const CATEGORY_ID = "1560064019325255701";
+
+const FOUNDER_ROLE_ID = "1560738050743468135";
+const CO_OWNER_ROLE_ID = "1560738926581252248";
+
+const BKASH_NUMBER = "01869942698";
+const NAGAD_NUMBER = "01624528622";
+
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const PORT = process.env.PORT || 10000;
+
+// ================= DISCORD CLIENT =================
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers
     ]
 });
 
-// Server & Category Configuration
-const SERVER_ID        = "1560034399398142113";
-const CATEGORY_ID      = "1560064019325255701";
-
-// Role IDs for Mentions & Channel Permissions
-const FOUNDER_ROLE_ID  = "1560738050743468135"; 
-const CO_OWNER_ROLE_ID = "1560738926581252248"; 
-
-// Payment Numbers
-const BKASH_NUMBER  = "01869942698";   // bKash Personal
-const NAGAD_NUMBER  = "01624528622";   // Nagad Personal
-
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-
-client.once('ready', () => {
-    console.log(`✅ BANGLA FF BOT is online as ${client.user.tag}`);
+client.once("ready", () => {
+    console.log(`BANGLA FF BOT is online as ${client.user.tag}`);
 });
 
-app.get('/', (req, res) => {
-    res.send('BANGLA FF Bot API is Running Successfully!');
+// ================= API HOME =================
+
+app.get("/", (req, res) => {
+    res.send("BANGLA FF Bot API is Running Successfully!");
 });
 
-app.post('/create-ticket', async (req, res) => {
-    const { discordUserId, packageName, price, productTitle } = req.body;
+// ================= CREATE ORDER TICKET =================
+
+app.post("/create-ticket", async (req, res) => {
+    let ticketChannel;
 
     try {
-        const guild = await client.guilds.fetch(SERVER_ID);
-        const channelName = `order-${Date.now().toString().slice(-4)}`;
-
-        // Base Channel Permissions (Admins only by default)
-        const permissionOverwrites = [
-            {
-                id: guild.id, // Hide channel from @everyone
-                deny: [PermissionsBitField.Flags.ViewChannel]
-            },
-            {
-                id: FOUNDER_ROLE_ID, // FOUNDER Access
-                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory]
-            },
-            {
-                id: CO_OWNER_ROLE_ID, // CO-OWNER Access
-                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.EmbedLinks, PermissionsBitField.Flags.ReadMessageHistory]
-            }
-        ];
-
-        let targetUserId = null;
-        let userPing = `**${discordUserId || "Not Provided"}**`;
-
-        // 🌟 স্মার্ট ইউজারনেম এবং আইডি ফাইন্ডার (Smart Search)
-        if (discordUserId) {
-            if (/^\d{17,19}$/.test(discordUserId)) {
-                // If it's already an 18-digit ID
-                targetUserId = discordUserId;
-            } else {
-                // If user typed their username, search the server for their ID
-                try {
-                    const members = await guild.members.fetch({ query: discordUserId, limit: 1 });
-                    const member = members.first();
-                    if (member) {
-                        targetUserId = member.id;
-                    }
-                } catch(err) {
-                    console.log("Member search error (Not in server yet).");
-                }
-            }
-        }
-
-        // কাস্টমার সার্ভারে থাকলে তাকে পারমিশন দেওয়া
-        if (targetUserId) {
-            userPing = `<@${targetUserId}>`;
-            permissionOverwrites.push({
-                id: targetUserId,
-                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory]
+        if (!client.isReady()) {
+            return res.status(503).json({
+                success: false,
+                error: "Bot is starting. Please try again."
             });
         }
 
-        // Create Private Ticket Channel
-        const ticketChannel = await guild.channels.create({
-            name: channelName,
-            type: 0,
+        const {
+            discordUserId,
+            packageName,
+            price,
+            productTitle
+        } = req.body || {};
+
+        // Require a numeric Discord User ID
+        const userId = String(discordUserId || "").trim();
+
+        if (!/^\d{17,20}$/.test(userId)) {
+            return res.status(400).json({
+                success: false,
+                error: "INVALID_DISCORD_ID"
+            });
+        }
+
+        // Validate basic order information
+        if (!productTitle || !packageName || price === undefined || price === null) {
+            return res.status(400).json({
+                success: false,
+                error: "MISSING_ORDER_DETAILS"
+            });
+        }
+
+        const guild = await client.guilds.fetch(SERVER_ID);
+
+        // Buyer must already be a member of this server
+        let buyer;
+
+        try {
+            buyer = await guild.members.fetch(userId);
+        } catch {
+            return res.status(403).json({
+                success: false,
+                error: "JOIN_SERVER_FIRST"
+            });
+        }
+
+        // Check whether the ticket category exists
+        const category = await guild.channels.fetch(CATEGORY_ID);
+
+        if (
+            !category ||
+            category.type !== ChannelType.GuildCategory
+        ) {
+            return res.status(500).json({
+                success: false,
+                error: "INVALID_TICKET_CATEGORY"
+            });
+        }
+
+        const safeProduct = String(productTitle).slice(0, 200);
+        const safePackage = String(packageName).slice(0, 200);
+        const safePrice = String(price).slice(0, 50);
+
+        // Create private ticket channel
+        ticketChannel = await guild.channels.create({
+            name: `order-${Date.now().toString().slice(-6)}`,
+            type: ChannelType.GuildText,
             parent: CATEGORY_ID,
-            permissionOverwrites: permissionOverwrites
+
+            permissionOverwrites: [
+                {
+                    id: guild.id,
+                    deny: [
+                        PermissionsBitField.Flags.ViewChannel
+                    ]
+                },
+                {
+                    id: buyer.id,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+                },
+                {
+                    id: FOUNDER_ROLE_ID,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.EmbedLinks,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+                },
+                {
+                    id: CO_OWNER_ROLE_ID,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.EmbedLinks,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+                }
+            ]
         });
 
+        // Build order embed
         const embed = new EmbedBuilder()
-            .setTitle("🛒 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐎𝐑𝐃𝐄𝐑 𝐓𝐈𝐂𝐊𝐄𝐓")
-            .setDescription("আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে! নিচে পেমেন্ট নাম্বার ও নিয়মাবলী দেওয়া হলো:")
+            .setTitle("🛒 PREMIUM ORDER TICKET")
+            .setDescription(
+                "আপনার অর্ডার টিকিট সফলভাবে তৈরি হয়েছে!\n\n" +
+                "নিচের নাম্বারে Send Money করে পেমেন্টের Screenshot ও TrxID দিন।"
+            )
             .setColor("#00ff99")
             .setThumbnail(client.user.displayAvatarURL())
             .addFields(
-                { name: "📦 ━【 প্রোডাক্ট 】", value: `\`\`\`fix\n👉 ${productTitle || "Paid Panel"}\n\`\`\``, inline: false },
-                { name: "⏳ ━【 মেয়াদ 】", value: `\`\`\`yaml\n${packageName || "N/A"}\n\`\`\``, inline: true },
-                { name: "💰 ━【 মোট টাকা 】", value: `\`\`\`diff\n+ ${price || "0"} BDT\n\`\`\``, inline: true },
-                { name: "👤 ━【 কাস্টমার 】", value: `> **ID/Name:** \`${discordUserId || "N/A"}\`\n> **Mention:** ${userPing}`, inline: false },
-                { name: "💳 ━【 পেমেন্ট নাম্বার (কপি করতে নাম্বারে চাপ দিন) 】", value: `> 💖 **bKash (Personal - Send Money):**\n\`\`\`\n${BKASH_NUMBER}\n\`\`\`\n> 🟧 **Nagad (Personal - Send Money):**\n\`\`\`\n${NAGAD_NUMBER}\n\`\`\``, inline: false },
-                { name: "📌 ━【 কীভাবে পেমেন্ট করবেন 】", value: `> **১.** বিকাশ অথবা নগদের নাম্বারটি কপি করে নিন\n> **২.** **Send Money** অপশন থেকে **\`${price || "0"}\`** টাকা পাঠান\n> **৩.** পেমেন্ট সম্পন্ন হলে এই চ্যানেলে **স্ক্রিনশট** ও **TrxID** পাঠান`, inline: false }
+                {
+                    name: "📦 প্রোডাক্ট",
+                    value: safeProduct,
+                    inline: false
+                },
+                {
+                    name: "⏳ মেয়াদ",
+                    value: safePackage,
+                    inline: true
+                },
+                {
+                    name: "💰 মোট টাকা",
+                    value: `${safePrice} BDT`,
+                    inline: true
+                },
+                {
+                    name: "👤 কাস্টমার",
+                    value: `<@${buyer.id}>`,
+                    inline: false
+                },
+                {
+                    name: "💖 bKash Personal",
+                    value: `\`${BKASH_NUMBER}\``,
+                    inline: true
+                },
+                {
+                    name: "🟧 Nagad Personal",
+                    value: `\`${NAGAD_NUMBER}\``,
+                    inline: true
+                },
+                {
+                    name: "📌 পেমেন্ট করার নিয়ম",
+                    value:
+                        "১. bKash অথবা Nagad-এ Send Money করুন।\n" +
+                        `২. ঠিক ${safePrice} টাকা পাঠান।\n` +
+                        "৩. পেমেন্টের Screenshot ও TrxID এই চ্যানেলে পাঠান।",
+                    inline: false
+                }
             )
-            .setFooter({ text: "BANGLA FF PANEL • Secure Ticket System", iconURL: client.user.displayAvatarURL() })
+            .setFooter({
+                text: "BANGLA FF PANEL • Secure Ticket System"
+            })
             .setTimestamp();
 
-        const roleMentions = `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>`;
-
+        // Send order details to the ticket
         await ticketChannel.send({
-            content: `📢 **নতুন অর্ডার এসেছে!** ${roleMentions}\n\nহ্যালো ${userPing} 👋\nনিচে আপনার পেমেন্ট নাম্বার দেওয়া আছে। টাকা পাঠিয়ে স্ক্রিনশট দিন।`,
+            content:
+                `📢 **নতুন অর্ডার এসেছে!**\n` +
+                `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>\n\n` +
+                `হ্যালো <@${buyer.id}> 👋`,
             embeds: [embed]
         });
 
-        // 🌟 জেনারেট ইনভাইট লিংক (নতুন মেম্বারদের সার্ভারে জয়েন করানোর জন্য)
-        const invite = await ticketChannel.createInvite({
-            maxAge: 86400, // 24 hours validity
-            maxUses: 0 // Unlimited uses
+        // Direct link to the exact private ticket channel
+        const ticketUrl =
+            `https://discord.com/channels/${guild.id}/${ticketChannel.id}`;
+
+        return res.status(201).json({
+            success: true,
+            message: "Ticket created successfully",
+            url: ticketUrl
         });
 
-        res.json({ success: true, url: invite.url });
-
     } catch (error) {
-        console.error("Error creating ticket:", error);
-        res.status(500).json({ success: false, error: "Bot error creating channel" });
+        console.error("Ticket creation error:", error);
+
+        // Delete incomplete ticket if creation partially failed
+        if (ticketChannel) {
+            try {
+                await ticketChannel.delete(
+                    "Cleaning up an incomplete order ticket"
+                );
+            } catch (cleanupError) {
+                console.error("Ticket cleanup error:", cleanupError);
+            }
+        }
+
+        return res.status(500).json({
+            success: false,
+            error: "TICKET_CREATION_FAILED"
+        });
     }
 });
 
-const PORT = process.env.PORT || 10000;
+// ================= START API SERVER =================
+
 app.listen(PORT, () => {
-    console.log(`🚀 API server live on port ${PORT}`);
+    console.log(`BANGLA FF API running on port ${PORT}`);
 });
 
-client.login(DISCORD_TOKEN);
+// ================= LOGIN BOT =================
+
+if (!DISCORD_TOKEN) {
+    console.error("ERROR: DISCORD_TOKEN is missing from environment variables.");
+} else {
+    client.login(DISCORD_TOKEN).catch((error) => {
+        console.error("Discord login failed:", error);
+    });
+}

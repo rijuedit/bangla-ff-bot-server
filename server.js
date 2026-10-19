@@ -1,4 +1,4 @@
-```javascript
+
 const {
     Client,
     GatewayIntentBits,
@@ -27,6 +27,10 @@ const CO_OWNER_ROLE_ID = "1560738926581252248";
 
 const BKASH_NUMBER = "01869942698";
 const NAGAD_NUMBER = "01624528622";
+
+// PANEL LOGOS
+const PC_LOGO_URL = "https://i.postimg.cc/vT10fNnJ/image.png";
+const MOBILE_LOGO_URL = "https://i.postimg.cc/Gh8fyHJy/image.png";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const PORT = process.env.PORT || 10000;
@@ -157,7 +161,6 @@ function detectPanelType(productTitle) {
         return "pc";
     }
 
-    // Default style if the product name doesn't identify the platform.
     return "default";
 }
 
@@ -179,8 +182,12 @@ function createOrderEmbed({
     let emoji;
     let platformName;
 
+    // Default logo for unidentified products
+    let logoUrl = client.user.displayAvatarURL();
+
     if (panelType === "mobile") {
         title = "📱 MOBILE PANEL ORDER";
+
         description =
             "╭━━━━━━━━━━━━━━━━━━━━╮\n" +
             "     📱 **MOBILE PANEL**\n" +
@@ -191,8 +198,11 @@ function createOrderEmbed({
         color = 0x9B59B6;
         emoji = "📱";
         platformName = "MOBILE PANEL";
+        logoUrl = MOBILE_LOGO_URL;
+
     } else if (panelType === "pc") {
         title = "🖥️ PC PANEL ORDER";
+
         description =
             "╭━━━━━━━━━━━━━━━━━━━━╮\n" +
             "     🖥️ **PC PANEL**\n" +
@@ -203,8 +213,11 @@ function createOrderEmbed({
         color = 0x3498DB;
         emoji = "🖥️";
         platformName = "PC PANEL";
+        logoUrl = PC_LOGO_URL;
+
     } else {
         title = "🛒 PREMIUM ORDER TICKET";
+
         description =
             "আপনার অর্ডারটি সফলভাবে তৈরি হয়েছে!\n" +
             "নিচের পেমেন্ট তথ্য অনুসরণ করুন।";
@@ -218,7 +231,7 @@ function createOrderEmbed({
         .setTitle(title)
         .setDescription(description)
         .setColor(color)
-        .setThumbnail(client.user.displayAvatarURL())
+        .setThumbnail(logoUrl)
         .addFields(
             {
                 name: `${emoji} ━【 PLATFORM 】`,
@@ -534,4 +547,3 @@ if (!DISCORD_TOKEN) {
         console.error("❌ Discord login failed:", error);
     });
 }
-```

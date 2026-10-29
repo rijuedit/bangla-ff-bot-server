@@ -19,8 +19,8 @@ app.use(express.json({ limit: "20kb" }));
 // CONFIGURATION
 // ==================================================
 
-const SERVER_ID = "1560034399398142113";
-const CATEGORY_ID = "1560064019325255701";
+const SERVER_ID = "1565444913812873337";
+const CATEGORY_ID = "1565448269000081569";
 
 const FOUNDER_ROLE_ID = "1560738050743468135";
 const CO_OWNER_ROLE_ID = "1560738926581252248";

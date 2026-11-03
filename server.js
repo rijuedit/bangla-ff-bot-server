@@ -384,12 +384,15 @@ app.post("/create-ticket", async (req, res) => {
             throw new Error("Configured ticket category is invalid.");
         }
 
-        // Verify staff roles
+        // Verify all three staff roles
         const founderRole = await guild.roles.fetch(FOUNDER_ROLE_ID);
         const coOwnerRole = await guild.roles.fetch(CO_OWNER_ROLE_ID);
+        const supportTeamRole = await guild.roles.fetch(SUPPORT_TEAM_ROLE_ID);
 
-        if (!founderRole || !coOwnerRole) {
-            throw new Error("Founder or Co-owner role is missing.");
+        if (!founderRole || !coOwnerRole || !supportTeamRole) {
+            throw new Error(
+                "Founder, Co-owner, or Support Team role is missing. Check all three role IDs."
+            );
         }
 
         // Create private ticket channel
@@ -442,6 +445,16 @@ app.post("/create-ticket", async (req, res) => {
                         PermissionsBitField.Flags.AttachFiles,
                         PermissionsBitField.Flags.EmbedLinks
                     ]
+                },
+                {
+                    id: SUPPORT_TEAM_ROLE_ID,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.ReadMessageHistory,
+                        PermissionsBitField.Flags.AttachFiles,
+                        PermissionsBitField.Flags.EmbedLinks
+                    ]
                 }
             ]
         });
@@ -471,11 +484,11 @@ app.post("/create-ticket", async (req, res) => {
             client
         });
 
-        // Notify staff and customer
+        // Notify Founder, Co-owner, Support Team and customer
         await ticketChannel.send({
             content:
                 `📢 **NEW ${panelType.toUpperCase()} ORDER!**\n` +
-                `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}>\n\n` +
+                `<@&${FOUNDER_ROLE_ID}> <@&${CO_OWNER_ROLE_ID}> <@&${SUPPORT_TEAM_ROLE_ID}>\n\n` +
                 `হ্যালো <@${buyer.id}> 👋\n` +
                 "আপনার অর্ডারের তথ্য ও পেমেন্ট নির্দেশনা নিচে দেওয়া হয়েছে।",
 
@@ -483,7 +496,11 @@ app.post("/create-ticket", async (req, res) => {
 
             allowedMentions: {
                 users: [buyer.id],
-                roles: [FOUNDER_ROLE_ID, CO_OWNER_ROLE_ID]
+                roles: [
+                    FOUNDER_ROLE_ID,
+                    CO_OWNER_ROLE_ID,
+                    SUPPORT_TEAM_ROLE_ID
+                ]
             }
         });
 
